@@ -1,0 +1,46 @@
+import nltk
+from nltk.tokenize import sent_tokenize
+from transformers import pipeline
+from sklearn.feature_extraction.text import CountVectorizer
+# Download necessary NLTK data for tokenization
+nltk.download('punkt')
+def extract_keywords(text, num_keywords=8):
+    """Extracts a diverse set of keywords from the text based on term frequency."""
+    vectorizer = CountVectorizer(stop_words='english')
+    X = vectorizer.fit_transform([text])
+    words = vectorizer.get_feature_names_out()
+    # Get the frequency of each word
+    freq = X.toarray().sum(axis=0)
+    # Pair words with their frequencies and sort
+    keywords = sorted(zip(words, freq), key=lambda x: x[1], reverse=True)
+    # Return the top keywords
+    return [kw[0] for kw in keywords[:num_keywords]]
+def ai_notes_generator(input_text):
+    # Tokenize the text into sentences
+    sentences = sent_tokenize(input_text)
+    print("Tokenized Sentences:", sentences)
+    # Check if input text is long enough for summarization
+    if len(sentences) < 2:
+        return "Text too short for summarization. Please provide more content."
+    # Load the summarization pipeline
+    summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+    # Generate a summary of the input text
+    summary = summarizer(input_text, max_length=200, min_length=50, do_sample=False)
+    # Extract the summary text
+    summary_text = summary[0]['summary_text']
+    
+    # Extract dynamic keywords from the input text
+    keywords = extract_keywords(input_text)
+    # Integrate the keywords into the summary
+    if keywords:
+        keyword_section = "Key aspects to consider include: " + ", ".join(keywords) + "."
+        summary_text = f"{summary_text} Furthermore, {keyword_section}"
+    return summary_text
+# Input text (can handle any user input related to various topics)
+input_text = """
+A turbine is a mechanical device that converts the energy of a moving fluid (such as steam, water, or air) into rotational motion. This rotational motion can then be used to generate power or perform mechanical work. Turbines work by channeling the fluid flow over blades or vanes attached to a rotor. As the fluid passes over the blades, it imparts force that causes the rotor to spin. The rotational energy of the rotor is transferred to a connected generator, pump, or other machinery to produce electricity or mechanical output.
+
+There are various types of turbines, each designed to work with different fluid sources. Steam turbines are widely used in power plants, where steam from boiling water drives the blades. Gas turbines operate using hot gases from combustion and are commonly found in jet engines and power generation. Hydraulic turbines harness the energy of flowing water, such as in dams or rivers, to generate power. Wind turbines use the kinetic energy of the wind to generate electricity, playing a key role in renewable energy generation. Turbines are critical components in modern energy production, enabling the efficient conversion of fluid energy into useful mechanical and electrical power across a range of industries."""
+# Generate notes
+notes = ai_notes_generator(input_text)
+print("Generated Notes:\n", notes)
